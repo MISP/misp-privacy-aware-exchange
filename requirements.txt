@@ -1,0 +1,9 @@
+mysqlclient
+sqlalchemy
+redis
+pandas
+matplotlib
+cryptography
+argparse
+url_normalize
+bcrypt

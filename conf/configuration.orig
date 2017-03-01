@@ -1,0 +1,34 @@
+[log]
+log_path = /var/log/squid3/access.log
+
+[redis]
+host = localhost
+port = 6379
+db = 0
+
+[misp]
+token = put_your_token
+email = put_your_email
+url = put_web_api_address
+
+[mysql]
+user = root
+password = put_your_password
+host = put_mysql_ip
+dbname = misp
+
+[rules]
+rules_location = ../rules
+
+[pbkdf2]
+iterations = 1000
+ipiterations = 1000
+hash_name = sha256
+dklen = 16
+
+[bcrypt]
+round = 1000
+ipround = 1000
+
+[bloom_filter]
+error_rate = 0.01
