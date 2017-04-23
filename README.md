@@ -27,10 +27,10 @@ for each rule:
         return the value
 ```
 
-Then, I've tried to make a modulable code to be able to add new crypto systems on it.
+Then, I've tried to make a code modular to be able to add new crypto systems on it.
 
 # Structure
-conf/ contains all configurations in the configuration file (= filled configuration.orig)
+conf/ contains all configurations in the configuration file (= configuration.orig)
 
 src/ contains all the source files
 
@@ -38,6 +38,18 @@ src/ contains all the source files
 - Install python3 and pip3
 - apt-get install libmysqlclient-dev build-essential libssl-dev libffi-dev python-dev
 - pip3 install -r requirements.txt
+
+# Setup Misp Virtual Machine (testing purpose)
+- Image available on : https://circl.lu/services/misp-training-materials/
+
+if we need to access the database from an other host, add remove sql access: (on the vm)
+```
+- vim /etc/mysql/my.cnf
+- replace line "bind-address = 127.0.0.1" by "# bind-address = 127.0.0.1"
+- mysql -uroot -pPassword1234
+- CREATE USER 'user'@'%' IDENTIFIED BY 'Password1234';
+- GRANT ALL ON *.* TO 'user'@'%';
+```
 
 
 # Examples
@@ -47,4 +59,8 @@ src/ contains all the source files
 - fill in misp/rules/pbkdf2 sections and save it
 - cd ..
 - ./readMisp.py -v
-- ./readMisp.py ip-dst=192.168.1.1
+- ./matchRules.py ip-dst=192.168.1.1
+
+# Master thesis
+This project comes from the master thesis done with the help of Conostix: 
+https://github.com/charly077/thesis

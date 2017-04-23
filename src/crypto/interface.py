@@ -4,7 +4,7 @@ Configuration must me in the configuration file
 """
 
 class Crypto():
-    def __init__(self, conf, metadata=None):
+    def __init__(self, conf, metadata=None, cryptoName=''):
         """
         Metadata is used for matching
         """

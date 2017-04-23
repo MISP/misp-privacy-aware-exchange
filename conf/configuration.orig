@@ -19,6 +19,7 @@ dbname = misp
 
 [rules]
 rules_location = ../rules
+cryptoModule = pbkdf2
 
 [pbkdf2]
 iterations = 1000

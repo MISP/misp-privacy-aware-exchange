@@ -6,15 +6,18 @@ import configparser
 import glob, hashlib, os
 from base64 import b64encode
 
-# hash and crypto import
+# Hash and crypto import
 from crypto.pybloom import BloomFilter
 
 class Bloom_filter(Crypto):
-    def __init__(self, conf, metadata=None):
+    def __init__(self, conf, metadata=None, rate=None):
         self.conf = conf
         self.token = conf['misp']['token']
         self.passwords = list()
-        # if for matching
+        self.rate = rate
+        if not rate:
+            self.rate = conf['bloom_filter']['error_rate']
+        # If for matching
         if metadata != None:
             filename = self.conf['rules']['location'] + '/joker'
             with open(filename, 'rb') as fd:
@@ -35,11 +38,9 @@ class Bloom_filter(Crypto):
         return {'joker':True}
 
 
-    def match(self, attributes, rule, queue):
+    def check(self, attributes, rule):
         """
-        Sometimes we don't need to decrypt the whole
-        ciphertext to know if there is a match
-        as it is the case here thanks to ctr mode
+        Return a list of password to test or an empty list
         """
         passwords = list()
 
@@ -50,24 +51,35 @@ class Bloom_filter(Crypto):
 
         for attr in attributes:
             passwords.append(attributes[attr]+ self.token)
-        
+
+        matchPasswords = list()
         for p in passwords:
             if p in self.f:
-                queue.put("Value(s) {} matched for {}\n".format(attributes, p[:-len(self.token)]))
+                matchPasswords.append(p)
+
+        return matchPasswords
+        
+
+    def match(self, attributes, rule, queue):
+        for p in self.check(attributes, rule):
+            queue.put("Value(s) {} matched for {}\n".format(attributes, p[:-len(self.token)]))
 
 
+    def write_bloom(self):
+        # Create Bloom filter
+        f = BloomFilter(capacity=len(self.passwords), error_rate=float(self.rate))
+        [f.add(password) for password in self.passwords ]
+        with open(self.conf['rules']['location'] + '/joker', 'wb') as fd:
+            f.tofile(fd)
 
     def save_meta(self):
         meta = configparser.ConfigParser()
         meta['crypto'] = {}
         meta['crypto']['name'] = 'bloom_filter' 
-        err_rate = self.conf['bloom_filter']['error_rate']
+        err_rate = self.rate
         meta['crypto']['error_rate'] = err_rate
         with open(self.conf['rules']['location'] + '/metadata', 'w') as config:
             meta.write(config)
+        
+        self.write_bloom()
 
-        # create Bloom filter
-        f = BloomFilter(capacity=len(self.passwords), error_rate=float(err_rate))
-        [f.add(password) for password in self.passwords ]
-        with open(self.conf['rules']['location'] + '/joker', 'wb') as fd:
-            f.tofile(fd)

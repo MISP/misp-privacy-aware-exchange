@@ -18,7 +18,7 @@ class Bcrypt(Crypto):
         self.btoken = bytes(conf['misp']['token'], encoding='ascii')
         self.round = int(self.conf['bcrypt']['round'])
         self.ipround = int(self.conf['bcrypt']['ipround'])
-        # for martching (only token is kept from config file)
+        # For matching (only token is kept from config file)
         if metadata is not None:
             metadata = metadata['crypto']
             self.round = int(metadata['round'])
@@ -26,7 +26,7 @@ class Bcrypt(Crypto):
 
     def derive_key(self, bpassword, bsalt, attr_types):
         """
-        Generate the key further used for encryption
+        Generate the key used for encryption
         Bcrypt truncates password to 72 bytes. 
             password + token : For long data, token will not be included
             token + password : only use 32 bytes of data
@@ -37,28 +37,26 @@ class Bcrypt(Crypto):
             rd = self.ipround
         else:
             rd = self.round
-        # solve the truncation problem (if token after 72 bytes)
+        # Solve the truncation problem
         digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
         digest.update(bpassword)
         digest.update(self.btoken)
         token_pass = digest.finalize()
-        print(attr_types)
         key =  bcrypt.kdf(password = token_pass, 
                 salt = bsalt,
                 desired_key_bytes = 16,
                 rounds = rd)
-        print(key)
         return key
 
     def create_rule(self, ioc, message):
         nonce = os.urandom(16)
-        salt = os.urandom(16) # Can be modifed ? 
+        salt = os.urandom(16)
 
         # Spit + redo allow to ensure the same order to create the password
         attr_types = '||'.join(attr_type for attr_type in ioc)
         password = '||'.join(ioc[attr_type] for attr_type in ioc)
 
-        # encrypt the message
+        # Encrypt the message
         dk = self.derive_key(password.encode('utf8'), salt, attr_types)
 
         backend = default_backend()
@@ -68,7 +66,7 @@ class Bcrypt(Crypto):
         ct_message = encryptor.update(message.encode('utf-8'))
         ct_message += encryptor.finalize()
 
-        # create the rule
+        # Create the rule
         rule = {}
         rule['salt'] = b64encode(salt).decode('ascii')
         rule['attributes'] = attr_types
@@ -84,7 +82,7 @@ class Bcrypt(Crypto):
         backend = default_backend()
         cipher = Cipher(algorithms.AES(dk), modes.CTR(nonce), backend=backend)
         dec = cipher.decryptor()
-        # A match is found when the first block is all null bytes
+        # A match is found when the first block is filled with null bytes
         if dec.update(ciphertext[0]) == b'\x00'*16:
             plaintext = dec.update(ciphertext[1]) + dec.finalize()
             return (True, plaintext)
@@ -104,7 +102,7 @@ class Bcrypt(Crypto):
             password = '||'.join([attributes[attr] for attr in rule_attr])
             attr_types = '||'.join(attr_type for attr_type in rule_attr)
         except:
-            pass # nothing to do
+            pass # Nothing to do
         ciphertext = [rule['ciphertext-check'], rule['ciphertext']]
         match, plaintext = self.cryptographic_match(password, rule['salt'],\
                 rule['nonce'], ciphertext, attr_types)

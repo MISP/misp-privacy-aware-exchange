@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# this code is inspired from https://github.com/CRIPTIM/private-IOC-sharing
+# This code is inspired from https://github.com/CRIPTIM/private-IOC-sharing written by Tim van de Kamp
 # which is using the MIT license
 
-# misp import
+# MISP import
 from configuration import Configuration
 
-# tools import
+# Tools import
 import argparse, configparser
 import os, sys, glob, subprocess
 from multiprocessing import SimpleQueue, Process, cpu_count, Lock
@@ -15,19 +15,26 @@ import json, csv, re
 from functools import lru_cache
 from copy import deepcopy
 import redis
-from url_normalize import url_normalize
+from normalize import normalize
 from collections import OrderedDict
+from progressbar import ProgressBar
 
-# crypto import 
+# Crypto import 
 import hashlib
 from base64 import b64decode
 from crypto.choose_crypto import Crypto
+
+###################
+# Parse arguments #
+###################
 
 parser = argparse.ArgumentParser(description='Evaluate a network dump against rules.')
 parser.add_argument('attribute', nargs='*', help='key-value attribute eg. ip=192.168.0.0 port=5012')
 parser.add_argument('--input', default="argument",
         help='input is redis, argument or rangeip (testing purpose)')
-
+parser.add_argument('-v', '--verbose',\
+                dest='verbose', action='store_true',\
+                        help='Shows progress bar')
 parser.add_argument('-p', '--multiprocess', action='store',
         type=int, help='Use multiprocess, the maximum is the number of cores minus 1 (only for redis)', default=0, )
 args = parser.parse_args()
@@ -36,26 +43,27 @@ metadata = {}
 conf = Configuration()
 
 ####################
-# helper functions #
+# Helper functions #
 ####################
 
-def iter_queue(queue):
-    # iter on a queue without infinite loop
+def iterator_result(queue):
+    # Iter on a queue without infinite loop
     def next():
         if queue.empty():
             return None
         else:
             return queue.get()
-    # return iterator
+    # Return iterator
     return iter(next, None)
 
-# from the csv file, read the rules and return them as a list
-def rules_from_csv(filename, lock, parse=True):
+# From the csv file, read the rules and return them as a list
+def rules_from_csv(filename, lock, parse=True, printErr=True):
     lock.acquire()
     path = conf['rules']['location']+'/'+filename
     rules = list()
     if not os.path.exists(path):
-        print("path does not exist")
+        if printErr:
+            print("path does not exist")
         lock.release()
         return rules
     with open(path, "r") as f:
@@ -79,19 +87,15 @@ rules_dict = {}
 def joker(lock):
     """
     Get joker file:
-        joker is a special rule that always need to be laoded
+        joker is a special rule that always loaded
     """
     try:
         return rules_dict[filename]
     except:
-        try:
-            rules_dict['joker'] = rules_from_csv('joker.tsv', lock, False)
-        except:
-            rules_dict['joker'] = list()
-        return rules_dict['joker']
+        return rules_from_csv('joker.tsv', lock, False, False)
 
 def get_file_rules(filename, lock):
-    # get rules :
+    # Get rules :
     try:
         return rules_dict[filename]
     except:
@@ -99,70 +103,62 @@ def get_file_rules(filename, lock):
         return rules_dict[filename]
 
 def get_rules(attributes, lock):
-    # get joker
+    # Get joker
     rules = joker(lock)
-    # wich combinaison
+    # Which combinaison
     for filename in file_attributes:
         if all([i in attributes for i in file_attributes[filename]]):
             for rule in get_file_rules(filename, lock):
                 rules.append(rule)
     return rules
 
-# small normalization to increase matching
-def normalize(ioc):
-    for attr_type in ioc:
-        # distinction bewtwee url|uri|link is often misused
-        # Thus they are considered the same
-        if attr_type == 'url' or\
-            attr_type == 'uri' or\
-            attr_type == 'link':
-                ioc[attr_type] = url_normalize(ioc[attr_type])
-        elif attr_type == 'hostname':
-            ioc[attr_type] = ioc[attr_type].lower() 
-    return ioc
-
 
 #####################
-# process functions #
+# Process functions #
 #####################
 def redis_matching_process(r, queue, lock, crypto):
-    # get data
+    # Get data
     log = r.rpop("logstash")
     while log:
         log = log.decode("utf8")
         log_dico = json.loads(log)
         ordered_dico = OrderedDico(log_dico)
-        dico_matching(ordered_dico, queue, lock, crypto)
+        matching(ordered_dico, queue, lock, crypto)
         log = r.rpop("logstash")
 
 def print_queue_process(queue):
-    # this is an infinite loop as get waits when empty
+    # This is an infinite loop as get waits when empty
     for elem in iter(queue.get, None):
        print(elem)
 
 
 ###################
-# match functions #
+# Match functions #
 ###################
 #@lru_cache(maxsize=None)
-def dico_matching(attributes, queue, lock, crypto):
+def matching(attributes, queue, lock, crypto):
     # normalize data 
     attributes = normalize(attributes)
     # test each rules
-    for rule in get_rules(attributes, lock):
-        crypto.match(attributes, rule, queue)
+    if args.verbose:
+        bar = ProgressBar()
+        for rule in bar(get_rules(attributes, lock)):
+            crypto.match(attributes, rule, queue) 
+    else:
+        for rule in get_rules(attributes, lock):
+            crypto.match(attributes, rule, queue)
 
 def argument_matching(crypto, values=args.attribute):
     attributes = OrderedDict(pair.split("=") for pair in values)
     match = SimpleQueue()
-    dico_matching(attributes, match, Lock(), crypto)
+    matching(attributes, match, Lock(), crypto)
 
-    # print matches
-    for match in iter_queue(match):
+    # Print matches (Easy to modify)
+    for match in iterator_result(match):
         print(match)
 
 def redis_matching(crypto):
-    # data is enriched in logstash
+    # Data is enriched in logstash
     conf = Configuration()
     r = redis.StrictRedis(host=conf['redis']['host'], port=conf['redis']['port'], db=conf['redis']['db'])
 
@@ -176,7 +172,7 @@ def redis_matching(crypto):
             process.start()
             processes.append(process)
 
-        # print match if there are some
+        # Print match(es)
         print_process = Process(target=print_queue_process, args=([match]))
         print_process.start()
         for process in processes:
@@ -184,11 +180,11 @@ def redis_matching(crypto):
         print_process.terminate()
     else:
         redis_matching_process(r, match, lock)
-        for item in iter_queue(match):
+        for item in iterator_result(match):
             print(item)
 
-# for Benchmarking
-def rangeip_matching(crypto):
+# For Benchmarking
+def rangeip_test(crypto):
     for ip4 in range(256):
         ip=["ip-dst=192.168.0." + str(ip4)]
         argument_matching(crypto, ip)
@@ -199,27 +195,27 @@ def rangeip_matching(crypto):
 if __name__ == "__main__":
     conf = Configuration()
     rules = list()
-    # get configuration
+    # Get configuration
     metaParser = configparser.ConfigParser()
     metaParser.read(conf['rules']['location'] + "/metadata")
     metadata = metaParser._sections
 
-    # choose crypto
+    # Choose crypto
     crypto = Crypto(metadata['crypto']['name'], conf, metadata)
 
     if not os.path.exists(conf['rules']['location']):
         sys.exit("No rules found.")
 
 
-    # get all files attribbutes
+    # Get all files attributes
     filenames = os.listdir(conf['rules']['location'])
     for name in filenames:
         split = (name.split('.')[0]).split('_')
         file_attributes[name] = split
-
+    
     if args.input == "redis":
         redis_matching(crypto)
     elif args.input == "rangeip":
-        rangeip_matching(crypto)
+        rangeip_test(crypto)
     else:
         argument_matching(crypto)

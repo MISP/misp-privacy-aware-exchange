@@ -7,3 +7,4 @@ cryptography
 argparse
 url_normalize
 bcrypt
+progressbar2

@@ -16,7 +16,7 @@ class Pbkdf2(Crypto):
         self.btoken = bytes(conf['misp']['token'], encoding='ascii')
         self.iterations = int(self.conf['pbkdf2']['iterations'])
         self.ipiterations = int(self.conf['pbkdf2']['ipiterations'])
-        # for martching (only token is kept from config file)
+        # For matching (only token is kept from config file)
         if metadata is not None:
             metadata = metadata['crypto']
             self.hash_name = metadata['hash_name']
@@ -26,7 +26,7 @@ class Pbkdf2(Crypto):
 
     def derive_key(self, bpassword, bsalt, attr_types):
         """
-        Generate the key further used for encryption
+        Generate the key for encryption
         """
         it = 1
         if attr_types in ["ip-dst", "ip-src", "ip-src||port", "ip-dst||port"]:
@@ -43,7 +43,7 @@ class Pbkdf2(Crypto):
         attr_types = '||'.join(attr_type for attr_type in ioc)
         password = '||'.join(ioc[attr_type] for attr_type in ioc)
 
-        # encrypt the message
+        # Encrypt the message
         dk = self.derive_key(password.encode('utf8'), salt, attr_types)
 
         backend = default_backend()
@@ -53,7 +53,7 @@ class Pbkdf2(Crypto):
         ct_message = encryptor.update(message.encode('utf-8'))
         ct_message += encryptor.finalize()
 
-        # create the rule
+        # Create the rule
         rule = {}
         rule['salt'] = b64encode(salt).decode('ascii')
         rule['attributes'] = attr_types
