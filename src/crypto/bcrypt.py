@@ -2,6 +2,7 @@
 Cryptographic system with bcrypt
 """
 from crypto.interface import Crypto
+from crypto.helper import *
 import configparser
 import glob, hashlib, os
 from base64 import b64encode
@@ -49,46 +50,10 @@ class Bcrypt(Crypto):
         return key
 
     def create_rule(self, ioc, message):
-        nonce = os.urandom(16)
         salt = os.urandom(16)
-
-        # Spit + redo allow to ensure the same order to create the password
-        attr_types = '||'.join(attr_type for attr_type in ioc)
-        password = '||'.join(ioc[attr_type] for attr_type in ioc)
-
-        # Encrypt the message
+        attr_types, password = get_types_values(ioc)
         dk = self.derive_key(password.encode('utf8'), salt, attr_types)
-
-        backend = default_backend()
-        cipher = Cipher(algorithms.AES(dk), modes.CTR(nonce), backend=backend)
-        encryptor = cipher.encryptor()
-        ct_check = encryptor.update(b'\x00'*16)
-        ct_message = encryptor.update(message.encode('utf-8'))
-        ct_message += encryptor.finalize()
-
-        # Create the rule
-        rule = {}
-        rule['salt'] = b64encode(salt).decode('ascii')
-        rule['attributes'] = attr_types
-        rule['nonce'] = b64encode(nonce).decode('ascii')
-        rule['ciphertext-check'] = b64encode(ct_check).decode('ascii')
-        rule['ciphertext'] = b64encode(ct_message).decode('ascii')
-
-        return rule
-
-    def cryptographic_match(self, password, salt, nonce, ciphertext, attr_types):
-        dk = self.derive_key(password.encode('utf8'), salt, attr_types)
-
-        backend = default_backend()
-        cipher = Cipher(algorithms.AES(dk), modes.CTR(nonce), backend=backend)
-        dec = cipher.decryptor()
-        # A match is found when the first block is filled with null bytes
-        if dec.update(ciphertext[0]) == b'\x00'*16:
-            plaintext = dec.update(ciphertext[1]) + dec.finalize()
-            return (True, plaintext)
-        else:
-            return (False, '')
-
+        return aes_create_rule(dk, message, attr_types, salt)
 
     def match(self, attributes, rule, queue):
         """
@@ -97,15 +62,16 @@ class Bcrypt(Crypto):
         as it is the case here thanks to ctr mode
         """
         rule_attr = rule['attributes']
-        password = ''
+        match = False
         try:
             password = '||'.join([attributes[attr] for attr in rule_attr])
             attr_types = '||'.join(attr_type for attr_type in rule_attr)
         except:
             pass # Nothing to do
+        dk = self.derive_key(password.encode('utf8'), rule['salt'], attr_types)
         ciphertext = [rule['ciphertext-check'], rule['ciphertext']]
-        match, plaintext = self.cryptographic_match(password, rule['salt'],\
-                rule['nonce'], ciphertext, attr_types)
+        match, plaintext = aes_match_rule(dk, password, rule['nonce'],\
+                ciphertext)
 
         if match:
             queue.put("IOC matched for: {}\nSecret Message (uuid-event id-date)\n===================================\n{}\n".format(attributes, plaintext.decode('utf-8')))

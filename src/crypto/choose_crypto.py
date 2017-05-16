@@ -10,6 +10,7 @@ def Crypto(name, conf, metadata=None):
         return Bloom_filter(conf, metadata)
     elif (name.startswith('bloomy_')):
         from crypto.bloomy import Bloomy
+        print(name[7:])
         return Bloomy(conf, metadata, name[7:])
     else:
         print('Not recognized')

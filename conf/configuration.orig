@@ -18,8 +18,12 @@ host = put_mysql_ip
 dbname = misp
 
 [rules]
-rules_location = ../rules
+location = ../rules
 cryptoModule = pbkdf2
+message = uuid event_id date
+
+[bloomy]
+fp_rate = 0.3
 
 [pbkdf2]
 iterations = 1000

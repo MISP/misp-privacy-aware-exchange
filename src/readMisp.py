@@ -30,20 +30,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.schema import MetaData, Table
 from sqlalchemy.sql import select
 
-
-
-###################
-# Parse Arguments #
-###################
-parser = argparse.ArgumentParser(description='Create an encrypted IOC \
-        rule.')
-parser.add_argument('--misp', default='web',
-        help='web (for web api);mysql (directly from mysql)')
-parser.add_argument('-v', '--verbose',\
-        dest='verbose', action='store_true',\
-        help='Explain what is being done')
-args = parser.parse_args()
-
+args = {}
 
 ####################
 # Global Variables #
@@ -63,10 +50,13 @@ def printv(value):
         print(value)
 
 def ioc_web():
-    printv("Update data from misp")
-    web_api.update()
+    printv("Get data from misp")
+    web_api.get_IOCs()
+    ioc_csv()
+
+def ioc_csv():
     printv("Cache misp data")
-    with open("../res/misp_events.csv", "r") as f:
+    with open("../res/"+ args.csvname +".csv", "r") as f:
         data = csv.DictReader(f)
         for d in data:
             IOCs.append(d)
@@ -105,10 +95,13 @@ def ioc_mysql():
             IOCs.append(dic_attr)
 
 def create_message(attr):
-    uuid = attr["uuid"]
-    event_id = attr["event_id"]
-    date = attr["date"]
-    return "{}:{}:{}".format(uuid, event_id, date)
+    # conf rules: message = uuid event_id date
+    #conf = Configuration()
+    message_attr = (conf['rules']['message']).split(" ")
+    message = ""
+    for mattr in message_attr:
+        message += ',' + str(attr[mattr])
+    return message[1:]
 
 def parse_attribute(attr, crypto, bar, i):
     bar.update(i)
@@ -126,11 +119,81 @@ def parse_attribute(attr, crypto, bar, i):
     msg = create_message(attr)
     return crypto.create_rule(ioc, msg)
 
+def parsing(IOCs, crypto, iocDic={}):
+	# Parse IOCs
+    printv("Create rules")
+    with ProgressBar(max_value = len(IOCs)) as bar:
+        iocs = [parse_attribute(ioc, crypto, bar, i) for (i,ioc) in enumerate(IOCs)]
+
+    # Sort IOCs in different files for optimization
+    printv("Sort IOCs with attributes")
+	# The first case only happens when only using bloom filter (!=bloomy)
+    try:
+        if iocs[0]['joker']:
+            iocDic['joker'] = [{'joker':True}] # (for bloom filter)
+    except:
+        for ioc in iocs:
+            typ = "_".join(ioc["attributes"].split('||'))
+            try:
+                iocDic[typ].append(ioc)
+            except:
+                iocDic[typ] = [ioc]
+    return iocDic
+
+def store_rules(iocDic, conf=conf):
+	printv("Store IOCs in files")
+	for typ in iocDic:
+		with open(conf['rules']['location'] + '/' + typ +'.tsv', 'wt') as output_file:
+			dict_writer = csv.DictWriter(output_file, iocDic[typ][0].keys(), delimiter='\t')
+			dict_writer.writeheader()
+			dict_writer.writerows(iocDic[typ])
+
+
+def get_file_rules(filename, conf):
+	path = conf['rules']['location']+'/'+filename
+	rules = list()
+	if not os.path.exists(path):
+		if printErr:
+			print("path does not exist")
+		return rules
+	    
+	with open(path, "r") as f:
+		data = csv.DictReader(f, delimiter='\t')
+		for d in data:
+			rules.append(d)
+
+	return rules
+
+def get_iocDic(conf=conf):
+	printv("Get existing rules")
+
+	iocDict = {}
+	filenames = os.listdir(conf['rules']['location'])
+	for name in filenames:
+		if name != 'metadata':
+			attr_type = (name.split('.')[0]).split('_')[0]
+			iocDict[attr_type] = get_file_rules(name, conf)
+
+	return iocDict
 
 ########
 # Main #
 ########
 if __name__ == "__main__":
+    ###################
+    # Parse Arguments #
+    ###################
+    parser = argparse.ArgumentParser(description='Create an encrypted IOC \
+            rule.')
+    parser.add_argument('--misp', default='web',
+            help='web (for web api);mysql (directly from mysql); res for the csv')
+    parser.add_argument('--csvname', default='misp_events',
+            help='Name of the csv in the res/ folder')
+    parser.add_argument('-v', '--verbose',\
+            dest='verbose', action='store_true',\
+            help='Explain what is being done')
+    args = parser.parse_args()
+    
     # Clean up the rule folder
     printv("Clean rules folder")
     if os.path.exists(conf['rules']['location']):
@@ -143,38 +206,22 @@ if __name__ == "__main__":
         ioc_web()
     elif args.misp == 'mysql':
         ioc_mysql()
+    elif args.misp == 'res':
+        ioc_csv()
     else:
-        sys.exit('misp argument is mis configured. Please select csv or mysql')
+        sys.exit('misp argument is miss configured. Please select web, res or mysql')
 
     # Choose crypto system
     crypto = Crypto(conf["rules"]["cryptomodule"], conf)
 
     # Parse IOCs
-    printv("Create rules")
-    with ProgressBar(max_value = len(IOCs)) as bar:
-        iocs = [parse_attribute(ioc, crypto, bar, i) for (i,ioc) in enumerate(IOCs)]
-
-    # Sort IOCs in different files for optimization
-    printv("Sort IOCs with attributes")
-    iocDic = {}
-    try:
-        if iocs[0]['joker']:
-            iocDic['joker'] = [{'joker':True}] # (for bloom filter)
-    except:
-        for ioc in iocs:
-            typ = "_".join(ioc["attributes"].split('||'))
-            try:
-                iocDic[typ].append(ioc)
-            except:
-                iocDic[typ] = [ioc]
-
-    printv("Store IOCs in files")
-    for typ in iocDic:
-        with open(conf['rules']['location'] + '/' + typ +'.tsv', 'wt') as output_file:
-            dict_writer = csv.DictWriter(output_file, iocDic[typ][0].keys(), delimiter='\t')
-            dict_writer.writeheader()
-            dict_writer.writerows(iocDic[typ])
+    iocDic = parsing(IOCs, crypto)
+    store_rules(iocDic)
+    
 
     # Create metadata (End function for Crypto modules)
     printv("Create metadata")
     crypto.save_meta()
+else:
+    def printv(val):
+        pass

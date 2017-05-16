@@ -39,7 +39,6 @@ class Pbkdf2(Crypto):
         dk = self.derive_key(password.encode('utf8'), salt, attr_types)
         return aes_create_rule(dk, message, attr_types, salt)
 
-
     def match(self, attributes, rule, queue):
         """
         Sometimes we don't need to decrypt the whole
