@@ -29,11 +29,11 @@ fp_rate = 0.3
 iterations = 1000
 ipiterations = 1000
 hash_name = sha256
-dklen = 16
+dklen = 32
 
 [bcrypt]
-round = 1000
-ipround = 1000
+round = 20000
+ipround = 20000
 
 [bloom_filter]
 error_rate = 0.01

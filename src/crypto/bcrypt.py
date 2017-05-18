@@ -45,7 +45,7 @@ class Bcrypt(Crypto):
         token_pass = digest.finalize()
         key =  bcrypt.kdf(password = token_pass, 
                 salt = bsalt,
-                desired_key_bytes = 16,
+                desired_key_bytes = 32,
                 rounds = rd)
         return key
 

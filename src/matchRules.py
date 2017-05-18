@@ -185,9 +185,10 @@ def redis_matching(crypto):
 
 # For Benchmarking
 def rangeip_test(crypto):
-    for ip4 in range(256):
-        ip=["ip-dst=192.168.0." + str(ip4)]
-        argument_matching(crypto, ip)
+    for ip4_0 in range(20):
+        for ip4_1 in range(256):
+            ip=['ip-dst=192.168.' + str(ip4_0) + '.' + str(ip4_1)]
+            argument_matching(crypto, ip)
 
 ########
 # Main #

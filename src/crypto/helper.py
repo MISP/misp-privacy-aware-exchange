@@ -21,6 +21,8 @@ def get_types_values(ioc):
 # AES #
 #######
 def aes_create_rule(key, message, attr_types, salt):
+    if len(key) < 32:
+        print('Key length is not enough, It is adviced to change the algorithm used!')
     nonce = os.urandom(16)
 
     # Encrypt

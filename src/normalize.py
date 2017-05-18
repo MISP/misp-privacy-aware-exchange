@@ -41,7 +41,7 @@ def ipNorm(ip):
         else:
             return str(ip_address(ip))
     except:
-        print('IP normalisation raised an error with this ip %s', ip)
+        print('IP normalisation raised an error with this ip ' + ip)
         return ip
 
 directory_indexes = ['default.asp', 'index.html', 'index.php', 'index.shtml'\
