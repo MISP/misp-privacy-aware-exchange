@@ -25,7 +25,12 @@ def normalize(ioc):
             attr_type == 'link':
                 # just solve one specific case:
                 if not '..org' in ioc[attr_type]:
-                    ioc[attr_type] = urlNorm(ioc[attr_type])
+                    try:
+                        ioc[attr_type] = urlNorm(ioc[attr_type])
+                    except Exception as e:
+                        print('\nUrl normalisation error with: ' +\
+                         ioc[attr_type] + '\n' + str(e) + '\n')
+                        ioc[attr_type] = ioc[attr_type]
         elif attr_type == 'hostname':
                 ioc[attr_type] = ioc[attr_type].lower()
         elif 'ip-' in attr_type:
@@ -40,8 +45,9 @@ def ipNorm(ip):
             return str(ip_network(ip))
         else:
             return str(ip_address(ip))
-    except:
-        print('IP normalisation raised an error with this ip ' + ip)
+    except Exception as e:
+        print('\nIP normalisation raised an error with this ip ' +\
+         ip +'\n' + str(e) + '\n')
         return ip
 
 directory_indexes = ['default.asp', 'index.html', 'index.php', 'index.shtml'\

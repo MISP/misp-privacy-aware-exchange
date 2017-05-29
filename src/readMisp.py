@@ -141,12 +141,12 @@ def parsing(IOCs, crypto, iocDic={}):
     return iocDic
 
 def store_rules(iocDic, conf=conf):
-	printv("Store IOCs in files")
-	for typ in iocDic:
-		with open(conf['rules']['location'] + '/' + typ +'.tsv', 'wt') as output_file:
-			dict_writer = csv.DictWriter(output_file, iocDic[typ][0].keys(), delimiter='\t')
-			dict_writer.writeheader()
-			dict_writer.writerows(iocDic[typ])
+    printv("Store IOCs in files")
+    for typ in iocDic:
+        with open(conf['rules']['location'] + '/' + typ +'.tsv', 'wt') as output_file:
+            dict_writer = csv.DictWriter(output_file, iocDic[typ][0].keys(), delimiter='\t')
+            dict_writer.writeheader()
+            dict_writer.writerows(iocDic[typ])
 
 
 def get_file_rules(filename, conf):
