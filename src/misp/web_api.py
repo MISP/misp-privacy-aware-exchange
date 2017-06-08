@@ -25,7 +25,30 @@ def save_json(url, name, remove_point=False, add_www=False):
     with open('res/{}.json'.format(name), 'w+') as f:
         json.dump(json_list, f)
 
-    
+def get_last_date(txt):
+    # Get last date
+    lastDate = None
+    lastDateVal = 0
+    for line in txt.splitlines():
+        if line != '\n':
+            date = line[-8:]
+            try:
+                int(date)
+                dateVal = int(date[6:]) + 31*int(date[4:6]) + 12*31*int(date[0:4])
+                if dateVal > lastDateVal and int(date[6:])<32 and int(date[4:6])<13:
+                    lastDate = date[0:4]+ '-' + date[4:6]+ '-' + date[6:]
+                    lastDateVal = dateVal
+            except:
+                pass
+    return lastDate
+
+"""
+Get IOCs from MISP using the token and the URL specified in the configuration
+file.
+It writes the result into the res folders in a file named misp_events.csv,
+This file is therefore needed for creating the rules but it will contain 
+data in CLEARTEXT.
+"""
 def get_IOCs():
     # first let clean the ressources
     if os.path.exists("../res"):
@@ -46,10 +69,10 @@ def get_IOCs():
 
     with open('../res/misp_events.csv', 'w') as f:
         f.write(events.text)
-    lastDate = events.text[-9:-1]
-    lastDate = lastDate[0:4]+ '-' + lastDate[4:6]+ '-' + lastDate[6:]
 
-    # TODO create a metafile with the data of the last event
+    # Get last date
+    lastDate = get_last_date(events.text)
+    
     if os.path.exists('../res/metadata'):
         os.remove('../res/metadata')
 
@@ -57,9 +80,13 @@ def get_IOCs():
         f.write(lastDate)
 
 
+"""
+As get_IOCs except that it only gets IOCs until the last update
+and save the result in the res folder as update<n° of the update>.csv
+"""
 def get_IOCs_update():
-    # date must be formated like 2015-02-15
-    # get last date:
+    # Date must be formated like 2015-02-15
+    # Get last date:
     with open('../res/metadata', 'r') as f:
         lastDate = f.read()[-11:]
     if (lastDate[-1] == '\n'):
@@ -67,7 +94,7 @@ def get_IOCs_update():
     else:
         lastDate = lastDate[-10:]
 
-    # get misp data in csv
+    # Get misp data in csv
     session = requests.Session()
     session.verify = True
     session.proxies = None
@@ -91,18 +118,13 @@ def get_IOCs_update():
         i = int(lastDate) # must be int
         with open('../res/' + filename + '.csv', 'w') as f:
             f.write(events.text)
-        lastDate = lastDate[0:4]+ '-' + lastDate[4:6]+ '-' + lastDate[6:]
+        lastDate = get_last_date(events.text)
         with open('../res/metadata', 'a') as f:
             f.write('\n' + lastDate)
     except:
         pass
     return filename
 
-def get_new_IOCs():
-    # TODO implement
-    # get last date in metafile
-    # get last :)
-    pass
 
 if __name__ == "__main__":
     update()

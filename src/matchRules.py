@@ -122,7 +122,7 @@ def redis_matching_process(r, queue, lock, crypto):
     while log:
         log = log.decode("utf8")
         log_dico = json.loads(log)
-        ordered_dico = OrderedDico(log_dico)
+        ordered_dico = OrderedDict(log_dico)
         matching(ordered_dico, queue, lock, crypto)
         log = r.rpop("logstash")
 
@@ -179,7 +179,7 @@ def redis_matching(crypto):
             process.join()
         print_process.terminate()
     else:
-        redis_matching_process(r, match, lock)
+        redis_matching_process(r, match, lock, crypto)
         for item in iterator_result(match):
             print(item)
 

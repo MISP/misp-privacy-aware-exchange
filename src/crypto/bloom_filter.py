@@ -44,7 +44,10 @@ class Bloom_filter(Crypto):
         """
         passwords = list()
 
-        if (len(attributes)>1):
+        # Only exists types with two elements ( redis matching
+        # has more attributes and it is not usefull to use
+        # long pass )
+        if (len(attributes)==2):
             # We also add the concatenation of the two values
             long_pass = '||'.join([attributes[attr] for attr in attributes])
             passwords.append(long_pass + self.token)

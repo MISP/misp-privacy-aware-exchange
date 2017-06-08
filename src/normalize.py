@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """
-Do not duplicate code in both readMisp and match Rules !
-The goal is first to normalize URLs and IPv6 addresses
+Do not duplicate code in both readMisp and match Rules
+The goal is first to normalize URLs and IP addresses
 URLs:
     - standards normalization as done with the library
     - additionnal 'normalization' steps explained in the report
         (could transform the URL but better for matching)
-IPv6: 
-    - # TODO 
+IP: 
+    - Standardize the IPv4, IPv6 and ranges
+    - If the library throws an error, the value is added without modifications
+        and a message appear in the console
 """
 import re, urllib
 from url_normalize import url_normalize
