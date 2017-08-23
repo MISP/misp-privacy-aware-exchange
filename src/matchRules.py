@@ -15,14 +15,14 @@ import json, csv, re
 from functools import lru_cache
 from copy import deepcopy
 import redis
-from normalize import normalize
+from pypraware_normalize.normalize import normalize
 from collections import OrderedDict
 from progressbar import ProgressBar
 
 # Crypto import 
 import hashlib
 from base64 import b64decode
-from crypto.choose_crypto import Crypto
+from pypraware_crypto.choose_crypto import Crypto
 
 ###################
 # Parse arguments #
@@ -87,7 +87,7 @@ rules_dict = {}
 def joker(lock):
     """
     Get joker file:
-        joker is a special rule that always loaded
+        joker is a special rule that is always loaded
     """
     try:
         return rules_dict[filename]

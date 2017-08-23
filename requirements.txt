@@ -1,3 +1,5 @@
+configparser
+requests
 mysqlclient
 sqlalchemy
 redis
@@ -7,4 +9,5 @@ cryptography
 argparse
 url_normalize
 bcrypt
+bitarray
 progressbar2

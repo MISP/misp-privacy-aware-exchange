@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-	Once already read the misp implementation, sometimes, we only need to add additionnal element.
+	Once already add additionnal elements to existing rules.
 	This is really usefull for a high number of iterations
 
 	This implementation could have been done directly in readMisp but I want to avoid misinterpretation
@@ -26,7 +26,7 @@ import datetime
 from progressbar import ProgressBar
 
 # Crypto import
-from crypto.choose_crypto import Crypto
+from pypraware_crypto.choose_crypto import Crypto
 
 args = {}
 ###########
